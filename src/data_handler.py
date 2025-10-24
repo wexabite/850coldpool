@@ -13,7 +13,6 @@ def open_data():
                               engine="cfgrib",
                               decode_timedelta=None,)
                               #backend_kwargs={"indexpath": ""},
-                              #chunks={"time": 200})
     return dataset
 
 def extract_data(dataset: xr.Dataset, height: float):
@@ -23,11 +22,18 @@ def extract_data(dataset: xr.Dataset, height: float):
 def get_time(dataset: xr.Dataset, time: int):
     return dataset.isel(time=time)
 
+def split_to_years(dataset: xr.Dataset, years: int, frames_in_year: int):
+    splits = [None] * years
+    for i in range(years):
+        split = dataset.isel(time=slice(i * frames_in_year, -1 + (i+1) * frames_in_year))
+        splits[i] = split
+    return splits
+
 def integrate(t850: xr.Dataset):
-    t850_C = t850 + absolute_zero
-    cosine_latitude = np.cos(np.radians(t850_C.coords["latitude"]))
+    t850_C = t850.to_numpy() + absolute_zero
+    cosine_latitude = np.cos(np.radians(t850.coords["latitude"]))
     ring_radius = cosine_latitude * earth_radius
-    integrated_latitude = t850_C.sum(dim="longitude") * ring_radius / nlon_cells
-    return (integrated_latitude.sum(dim="latitude") * earth_radius / nlat_cells)
+    integrated_latitude = t850_C.sum(axis=1) * ring_radius / nlon_cells
+    return integrated_latitude.sum() * earth_radius / nlat_cells
 
 
